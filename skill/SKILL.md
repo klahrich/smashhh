@@ -46,9 +46,12 @@ Ask the user, conversationally (batch the questions, don't drip-feed):
    `fast` (all on main, verifier commits on PASS).
 5. **Per-story gate**: pause for user review after each verified story?
    (default: no — hands-off until the plan is exhausted or escalation)
-6. **Progress peeks**: while agents work, do you want periodic digests of what
-   each pane is doing, and at what interval in minutes? (default: on, every 5
-   minutes — see "Progress peeks" below)
+6. **GitHub remote**: create one? Public or private (default: private)?
+   If yes, the orchestrator creates it at scaffold time and pushes `main`
+   after every verified story commit.
+7. **Progress peeks**: while agents work, do you want periodic digests of what
+   each pane is doing, and at what interval in minutes? (default: off —
+   see "Progress peeks" below)
 
 Confirm the full configuration back to the user before proceeding.
 
@@ -66,6 +69,8 @@ Then:
    and `{{GIT_MODE}}`.
 3. Write `docs/PROJECT.md` from the interview.
 4. Commit: `git add -A && git commit -m "smashhh: project scaffold"`.
+5. If the user wanted a GitHub remote: `gh repo create <name>
+   --private|--public --source . --push` from the project root.
 
 ## Step 3 — Spawn the team
 
@@ -141,7 +146,8 @@ herdr pane run <verifier> "<verifier-verify prompt, STORY_NN=N + PASS git action
 ```
 
 - **PASS** → confirm the merge/commit landed on main
-  (`git -C <path> log --oneline -3`), set `attempt: 0`, `current_story: N`.
+  (`git -C <path> log --oneline -3`) and, if a GitHub remote exists, push it
+  (`git -C <path> push`). Set `attempt: 0`, `current_story: N`.
   If `per_story_gate`, summarize and wait for user go-ahead before (a) of N+1.
 - **FAIL** → if `attempt < 2`: increment `attempt`, send
   `coder-fix` prompt, go to (c). If `attempt == 2`: **stop and escalate** —

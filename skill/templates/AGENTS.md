@@ -79,7 +79,8 @@ Mode for this project: **{{GIT_MODE}}**
   `Story NN: <name> (verified)` after each PASS. `main` is still always green.
 
 Either way: never commit code that doesn't build or whose tests fail, and
-every commit message references its story number.
+every commit message references its story number. If a GitHub remote exists,
+the orchestrator pushes `main` after each verified story (agents never push).
 
 ## Role contracts (summary)
 

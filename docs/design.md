@@ -150,6 +150,10 @@ mechanisms, both harness-agnostic:
   then deletes the story branch). If the project has a GitHub remote and the
   user prefers PRs, the orchestrator drives `gh pr` instead — chosen in the
   interview; local merge is the default.
+- **Remote management is the orchestrator's job.** If the user wants a GitHub
+  remote (interview question), the orchestrator creates it at scaffold time
+  (`gh repo create`, private by default) and pushes `main` after every
+  verified story commit. Agents never push.
 - **Fast mode (optional).** Everything on `main`, commit after each verified
   story, no PRs. For going fast on solo projects.
 - Either way, a story only lands on `main` after the verifier passes it.
