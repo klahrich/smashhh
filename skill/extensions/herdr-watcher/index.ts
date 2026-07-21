@@ -18,7 +18,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { execFile } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 
@@ -50,6 +50,17 @@ function saveWatches(watches: Map<string, Watch>): void {
 }
 
 const watches = loadWatches();
+
+const DEBUG_FILE = join(homedir(), ".pi", "agent", "extensions", "herdr-watcher", "debug.log");
+
+function debug(msg: string): void {
+	try {
+		mkdirSync(dirname(DEBUG_FILE), { recursive: true });
+		appendFileSync(DEBUG_FILE, `${new Date().toISOString()} ${msg}\n`);
+	} catch {
+		// never let logging break the watcher
+	}
+}
 let timer: ReturnType<typeof setInterval> | null = null;
 
 const SENTINEL = "SMASHHH_TASK_COMPLETE:";
@@ -143,8 +154,10 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 				try {
 					status = await paneStatus(pane);
 				} catch {
+					debug(`${pane}: status check threw, skipping tick`);
 					continue; // transient error; try again next tick
 				}
+				debug(`${pane}: status=${status} baseline=${meta.sentinelsAtBaseline}`);
 				let what: string;
 				if (status === "working") {
 					// Status can get stuck; fall back to the completion sentinel.
@@ -152,8 +165,10 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 					try {
 						sentinelCount = await paneSentinelCount(pane);
 					} catch {
+						debug(`${pane}: sentinel check threw, skipping tick`);
 						continue;
 					}
+					debug(`${pane}: sentinels=${sentinelCount} baseline=${meta.sentinelsAtBaseline}`);
 					if (sentinelCount <= meta.sentinelsAtBaseline) continue;
 					what = "still reports agent_status=working, but a new completion sentinel appeared (stuck status detection)";
 				} else {
@@ -162,6 +177,7 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 							? "is no longer reachable (pane closed or herdr error)"
 							: `agent_status=${status}`;
 				}
+				debug(`${pane}: FIRING — ${what}`);
 				watches.delete(pane);
 				saveWatches(watches);
 				pi.sendMessage(
