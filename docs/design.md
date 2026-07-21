@@ -109,6 +109,16 @@ mechanisms, both harness-agnostic:
 
    `blocked` means the agent needs input — surface it to the user.
 
+   Smoke-tested mechanics (Windows/PowerShell panes): `pane run`,
+   `wait output`, `wait agent-status`, `pane read` all work as expected.
+   Two gotchas:
+   - `wait output --match` can match the **terminal echo of our own
+     `pane run` input**. Never put the sentinel string verbatim in prompts;
+     use status waits as primary and grep the transcript for the sentinel
+     after completion.
+   - The pane shell on Windows is PowerShell: unquoted colons/spaces in
+     commands split arguments. Quote anything non-trivial.
+
 2. **Sentinel line** (disambiguation, mandated in AGENTS.md). Each agent ends
    a completed task turn with:
 
@@ -127,9 +137,11 @@ mechanisms, both harness-agnostic:
   may fill multiple roles; it just runs as separate instances.
 - smashhh tracks `role → pane_id` and routes every prompt through
   `herdr pane run`.
-- Models are selected at launch time via CLI flags (`claude --model`,
-  `codex -m`, `pi --model`) — exact flag names to be verified per harness —
-  rather than relying on in-TUI `/model` commands.
+- Models are selected at launch time via CLI flags — verified on the installed
+  harnesses: `pi --model <pattern>` (supports `provider/id` and a
+  `:<thinking>` suffix), `codex -m/--model <MODEL>`, `claude --model <model>`
+  (aliases like `opus`/`sonnet` or full names). We use these rather than
+  in-TUI `/model` commands.
 
 ## Git strategy
 
@@ -162,10 +174,12 @@ waits, transcript reads) goes through the `herdr` CLI per the herdr skill.
 
 - [x] Research existing planner/coder/verifier persona prompts & skills;
       distill into three short persona blocks → [personas/](../personas/)
-- [ ] Verify model-selection launch flags for pi, codex, claude
+- [x] Verify model-selection launch flags for pi, codex, claude
 - [x] Write the AGENTS.md template (roles, file protocol, sentinel rule)
       → [templates/AGENTS.md](../templates/AGENTS.md)
-- [ ] Write the kickoff prompts (role assignment + first task per role)
+- [x] Write the kickoff prompts (role assignment + first task per role)
+      → [templates/prompts/](../templates/prompts/) (kickoffs + per-iteration
+      task prompts for implement / verify / fix)
 - [ ] Implement the smashhh skill: interview → scaffold → loop
 - [ ] Define the verifier's PASS merge/PR mechanics (gh CLI? local merge?)
 - [ ] Dogfood: build smashhh's own first real project with smashhh
