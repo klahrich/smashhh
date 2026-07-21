@@ -201,6 +201,12 @@ completion you should be reacting to.
   AGENTS.md. Absent sentinel + done status = agent stopped early; read more
   transcript before proceeding. Never put the sentinel string itself into a
   prompt you send (terminal echo false-matches `wait output`).
+- **Stuck statuses happen**: Herdr's agent detection can remain `working`
+  even after an agent has clearly finished — the detection buffer shows an
+  idle prompt yet the status never flips (observed with pi panes). The
+  contract is **sentinel + files**, not status: if a watch hasn't fired but
+  the transcript shows the completion sentinel and the expected files exist,
+  unwatch and proceed. Tell the user when you do this.
 - **Verify files, not just statuses**: each step's contract is a file in
   `handoff/` or `stories/`. If the file is missing or malformed, send the
   agent back to finish before moving on.
