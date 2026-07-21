@@ -1,35 +1,43 @@
 /**
  * Herdr Watcher
  *
- * Watches Herdr panes in the background and injects a session message when a
- * pane's agent_status stops being "working" — so an orchestrating agent
- * (smashhh) can end its turn after delegating and stay responsive, instead of
- * blocking on wait loops.
+ * Watches background work and injects a session message when it completes —
+ * so an orchestrating agent (smashhh) can end its turn after delegating and
+ * stay responsive, instead of blocking on wait loops.
+ *
+ * Completion signals, in order of reliability:
+ * 1. `file` (recommended): fires when the watched file's mtime passes the
+ *    watch registration time. Files are the source of truth — every
+ *    delegated task should have a contract file (report, story, etc.).
+ * 2. pane status: fires when the pane's agent_status stops being "working".
+ *    (Herdr detection occasionally gets stuck at "working" — use `file`.)
  *
  * Tools:
- * - herdr_watch { pane, note? }  — start watching a pane
- * - herdr_unwatch { pane }       — stop watching
+ * - herdr_watch { pane, note?, file? }  — start watching
+ * - herdr_unwatch { pane }              — stop watching
  *
- * The watcher polls every 10s. When a watched pane leaves "working"
- * (done / idle / blocked / unreachable), it injects a [herdr-watcher] message
- * with triggerTurn, waking the agent to continue its loop.
+ * Watches persist across session reloads in watches.json.
+ * Tick diagnostics go to debug.log (same directory).
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { execFile } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, appendFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 
 interface Watch {
 	note?: string;
-	sentinelsAtBaseline: number;
+	/** Contract file: fire when its mtime passes registeredAt. */
+	file?: string;
+	/** Epoch ms when the watch was registered. */
+	registeredAt: number;
 }
 
-// Watches persist across session reloads (session_shutdown clears timers
-// but must not lose registered watches).
-const STATE_FILE = join(homedir(), ".pi", "agent", "extensions", "herdr-watcher", "watches.json");
+const EXT_DIR = join(homedir(), ".pi", "agent", "extensions", "herdr-watcher");
+const STATE_FILE = join(EXT_DIR, "watches.json");
+const DEBUG_FILE = join(EXT_DIR, "debug.log");
 
 function loadWatches(): Map<string, Watch> {
 	try {
@@ -50,8 +58,7 @@ function saveWatches(watches: Map<string, Watch>): void {
 }
 
 const watches = loadWatches();
-
-const DEBUG_FILE = join(homedir(), ".pi", "agent", "extensions", "herdr-watcher", "debug.log");
+let timer: ReturnType<typeof setInterval> | null = null;
 
 function debug(msg: string): void {
 	try {
@@ -61,9 +68,6 @@ function debug(msg: string): void {
 		// never let logging break the watcher
 	}
 }
-let timer: ReturnType<typeof setInterval> | null = null;
-
-const SENTINEL = "SMASHHH_TASK_COMPLETE:";
 
 function paneStatus(pane: string): Promise<string | null> {
 	return new Promise((resolve) => {
@@ -79,22 +83,13 @@ function paneStatus(pane: string): Promise<string | null> {
 	});
 }
 
-// herdr pane read prints raw text (not JSON). Count completion sentinels
-// in the recent transcript: a fallback for when Herdr's agent-status
-// detection gets stuck at "working". Count-based (not boolean) so that a
-// stale sentinel from a previous task in scrollback doesn't mask a new one.
-function paneSentinelCount(pane: string): Promise<number> {
-	return new Promise((resolve) => {
-		execFile(
-			"herdr",
-			["pane", "read", pane, "--source", "recent-unwrapped", "--lines", "60"],
-			{ timeout: 15000 },
-			(err, stdout) => {
-				if (err) return resolve(0);
-				resolve(stdout.split(SENTINEL).length - 1);
-			},
-		);
-	});
+/** Returns the file's mtime in epoch ms, or null if it doesn't exist yet. */
+function fileMtime(path: string): number | null {
+	try {
+		return statSync(path).mtimeMs;
+	} catch {
+		return null;
+	}
 }
 
 export default function herdrWatcher(pi: ExtensionAPI) {
@@ -102,22 +97,29 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 		name: "herdr_watch",
 		label: "Herdr Watch",
 		description:
-			"Watch a Herdr pane in the background; the session is notified when the pane's agent_status stops being 'working'. Use after `herdr pane run` to delegate without blocking the conversation.",
+			"Watch background work; the session is notified on completion. Pass `file` (absolute path to the task's contract/report file) for the reliable trigger — it fires when the file is written after registration. Without `file`, falls back to the pane's agent_status leaving 'working' (less reliable).",
 		parameters: Type.Object({
 			pane: Type.String({ description: "Pane ID, e.g. w6:p2" }),
-			note: Type.Optional(
-				Type.String({ description: "Context to include in the completion notification" }),
+			note: Type.Optional(Type.String({ description: "Context to include in the notification" })),
+			file: Type.Optional(
+				Type.String({
+					description: "Absolute path of the contract file whose write signals completion",
+				}),
 			),
 		}),
 		async execute(_toolCallId, params) {
-			const sentinelsAtBaseline = await paneSentinelCount(params.pane);
-			watches.set(params.pane, { note: params.note, sentinelsAtBaseline });
+			watches.set(params.pane, {
+				note: params.note,
+				file: params.file,
+				registeredAt: Date.now(),
+			});
 			saveWatches(watches);
+			debug(`watch set: ${params.pane} file=${params.file ?? "(status only)"}`);
 			return {
 				content: [
 					{
 						type: "text",
-						text: `Watching ${params.pane} — you will be notified when it leaves 'working'. End your turn now and react to the [herdr-watcher] message.`,
+						text: `Watching ${params.pane}${params.file ? ` (file trigger: ${params.file})` : " (status trigger only — prefer passing file)"} — end your turn now and react to the [herdr-watcher] message.`,
 					},
 				],
 			};
@@ -147,36 +149,36 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 
 	pi.on("session_start", () => {
 		if (timer) return; // idempotent across reloads
+		debug(`session_start: ${watches.size} watch(es) restored`);
 		timer = setInterval(async () => {
 			if (watches.size === 0) return;
 			for (const [pane, meta] of [...watches]) {
-				let status: string | null;
-				try {
-					status = await paneStatus(pane);
-				} catch {
-					debug(`${pane}: status check threw, skipping tick`);
-					continue; // transient error; try again next tick
-				}
-				debug(`${pane}: status=${status} baseline=${meta.sentinelsAtBaseline}`);
-				let what: string;
-				if (status === "working") {
-					// Status can get stuck; fall back to the completion sentinel.
-					let sentinelCount = 0;
+				let what: string | null = null;
+
+				if (meta.file) {
+					const mtime = fileMtime(meta.file);
+					debug(`${pane}: file mtime=${mtime} registeredAt=${meta.registeredAt}`);
+					if (mtime !== null && mtime > meta.registeredAt) {
+						what = `contract file written: ${meta.file}`;
+					}
+				} else {
+					let status: string | null;
 					try {
-						sentinelCount = await paneSentinelCount(pane);
+						status = await paneStatus(pane);
 					} catch {
-						debug(`${pane}: sentinel check threw, skipping tick`);
+						debug(`${pane}: status check threw, skipping tick`);
 						continue;
 					}
-					debug(`${pane}: sentinels=${sentinelCount} baseline=${meta.sentinelsAtBaseline}`);
-					if (sentinelCount <= meta.sentinelsAtBaseline) continue;
-					what = "still reports agent_status=working, but a new completion sentinel appeared (stuck status detection)";
-				} else {
-					what =
-						status === null
-							? "is no longer reachable (pane closed or herdr error)"
-							: `agent_status=${status}`;
+					debug(`${pane}: status=${status}`);
+					if (status !== "working") {
+						what =
+							status === null
+								? "is no longer reachable (pane closed or herdr error)"
+								: `agent_status=${status}`;
+					}
 				}
+
+				if (!what) continue;
 				debug(`${pane}: FIRING — ${what}`);
 				watches.delete(pane);
 				saveWatches(watches);
