@@ -21,7 +21,7 @@ import { execFile } from "node:child_process";
 
 interface Watch {
 	note?: string;
-	sentinelAtBaseline: boolean;
+	sentinelsAtBaseline: number;
 }
 
 const watches = new Map<string, Watch>();
@@ -43,18 +43,19 @@ function paneStatus(pane: string): Promise<string | null> {
 	});
 }
 
-// herdr pane read prints raw text (not JSON). Look for the completion
-// sentinel in the recent transcript: a fallback for when Herdr's
-// agent-status detection gets stuck at "working".
-function paneHasSentinel(pane: string): Promise<boolean> {
+// herdr pane read prints raw text (not JSON). Count completion sentinels
+// in the recent transcript: a fallback for when Herdr's agent-status
+// detection gets stuck at "working". Count-based (not boolean) so that a
+// stale sentinel from a previous task in scrollback doesn't mask a new one.
+function paneSentinelCount(pane: string): Promise<number> {
 	return new Promise((resolve) => {
 		execFile(
 			"herdr",
-			["pane", "read", pane, "--source", "recent-unwrapped", "--lines", "30"],
+			["pane", "read", pane, "--source", "recent-unwrapped", "--lines", "60"],
 			{ timeout: 15000 },
 			(err, stdout) => {
-				if (err) return resolve(false);
-				resolve(stdout.includes(SENTINEL));
+				if (err) return resolve(0);
+				resolve(stdout.split(SENTINEL).length - 1);
 			},
 		);
 	});
@@ -73,8 +74,8 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 			),
 		}),
 		async execute(_toolCallId, params) {
-			const sentinelAtBaseline = await paneHasSentinel(params.pane);
-			watches.set(params.pane, { note: params.note, sentinelAtBaseline });
+			const sentinelsAtBaseline = await paneSentinelCount(params.pane);
+			watches.set(params.pane, { note: params.note, sentinelsAtBaseline });
 			return {
 				content: [
 					{
@@ -120,14 +121,14 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 				let what: string;
 				if (status === "working") {
 					// Status can get stuck; fall back to the completion sentinel.
-					let hasSentinel = false;
+					let sentinelCount = 0;
 					try {
-						hasSentinel = await paneHasSentinel(pane);
+						sentinelCount = await paneSentinelCount(pane);
 					} catch {
 						continue;
 					}
-					if (!hasSentinel || meta.sentinelAtBaseline) continue;
-					what = "still reports agent_status=working, but the completion sentinel appeared (stuck status detection)";
+					if (sentinelCount <= meta.sentinelsAtBaseline) continue;
+					what = "still reports agent_status=working, but a new completion sentinel appeared (stuck status detection)";
 				} else {
 					what =
 						status === null
