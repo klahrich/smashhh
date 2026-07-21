@@ -18,13 +18,38 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { execFile } from "node:child_process";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, dirname } from "node:path";
 
 interface Watch {
 	note?: string;
 	sentinelsAtBaseline: number;
 }
 
-const watches = new Map<string, Watch>();
+// Watches persist across session reloads (session_shutdown clears timers
+// but must not lose registered watches).
+const STATE_FILE = join(homedir(), ".pi", "agent", "extensions", "herdr-watcher", "watches.json");
+
+function loadWatches(): Map<string, Watch> {
+	try {
+		const raw = JSON.parse(readFileSync(STATE_FILE, "utf8"));
+		return new Map(Object.entries(raw));
+	} catch {
+		return new Map();
+	}
+}
+
+function saveWatches(watches: Map<string, Watch>): void {
+	try {
+		mkdirSync(dirname(STATE_FILE), { recursive: true });
+		writeFileSync(STATE_FILE, JSON.stringify(Object.fromEntries(watches), null, 2));
+	} catch {
+		// best effort; a lost save just means a re-watch next session
+	}
+}
+
+const watches = loadWatches();
 let timer: ReturnType<typeof setInterval> | null = null;
 
 const SENTINEL = "SMASHHH_TASK_COMPLETE:";
@@ -76,6 +101,7 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 		async execute(_toolCallId, params) {
 			const sentinelsAtBaseline = await paneSentinelCount(params.pane);
 			watches.set(params.pane, { note: params.note, sentinelsAtBaseline });
+			saveWatches(watches);
 			return {
 				content: [
 					{
@@ -96,6 +122,7 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 		}),
 		async execute(_toolCallId, params) {
 			const had = watches.delete(params.pane);
+			saveWatches(watches);
 			return {
 				content: [
 					{
@@ -136,6 +163,7 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 							: `agent_status=${status}`;
 				}
 				watches.delete(pane);
+				saveWatches(watches);
 				pi.sendMessage(
 					{
 						customType: "herdr-watcher",
@@ -151,6 +179,6 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 	pi.on("session_shutdown", () => {
 		if (timer) clearInterval(timer);
 		timer = null;
-		watches.clear();
+		// watches intentionally NOT cleared — they persist in STATE_FILE
 	});
 }
