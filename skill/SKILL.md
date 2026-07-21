@@ -42,6 +42,9 @@ Ask the user, conversationally (batch the questions, don't drip-feed):
    `fast` (all on main, verifier commits on PASS).
 5. **Per-story gate**: pause for user review after each verified story?
    (default: no — hands-off until the plan is exhausted or escalation)
+6. **Progress peeks**: while agents work, do you want periodic digests of what
+   each pane is doing, and at what interval in minutes? (default: on, every 5
+   minutes — see "Progress peeks" below)
 
 Confirm the full configuration back to the user before proceeding.
 
@@ -78,6 +81,7 @@ Record the mapping immediately in `<path>/.smashhh/state.json`:
   "project": "<name>", "workspace_id": "w3",
   "roles": {"planner": "w3:p1", "coder": "w3:p2", "verifier": "w3:p3"},
   "git_mode": "branch-per-story", "per_story_gate": false,
+  "peek_interval_min": 5,
   "phase": "spawned", "current_story": 0, "attempt": 0
 }
 ```
@@ -142,6 +146,22 @@ herdr pane run <verifier> "<verifier-verify prompt, STORY_NN=N + PASS git action
 
 When all stories are done: final summary to the user (what was built, where,
 how to run it), `"phase": "done"`.
+
+## Progress peeks
+
+While any teammate agent is `working`, report a compact digest to the user at
+the configured interval (`peek_interval_min` in state.json; 0/off = disabled):
+
+```bash
+python <skill-dir>/scripts/peek.py <workspace_id>
+```
+
+Structure long waits around it: instead of one blocking `herdr wait`, poll in
+intervals — run the peek, print the digest (keep it raw and short; add at most
+one line of interpretation), then continue waiting. The user can steer this at
+any time ("peek on/off", "peek every 2") — update state.json and apply it from
+the next interval onward. Peeks are read-only; never let them delay a
+completion you should be reacting to.
 
 ## Driving rules
 
