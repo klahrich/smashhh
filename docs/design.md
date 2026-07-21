@@ -145,8 +145,11 @@ mechanisms, both harness-agnostic:
 
 ## Git strategy
 
-- **Branch per story (default).** Coder works on `story-NN-<slug>`; verifier
-  greenlight is the signal to open a PR / merge into `main`.
+- **Branch per story (default).** Coder works on `story-NN-<slug>`; on a PASS
+  verdict the verifier merges the branch into `main` locally (merge commit,
+  then deletes the story branch). If the project has a GitHub remote and the
+  user prefers PRs, the orchestrator drives `gh pr` instead — chosen in the
+  interview; local merge is the default.
 - **Fast mode (optional).** Everything on `main`, commit after each verified
   story, no PRs. For going fast on solo projects.
 - Either way, a story only lands on `main` after the verifier passes it.
@@ -180,6 +183,8 @@ waits, transcript reads) goes through the `herdr` CLI per the herdr skill.
 - [x] Write the kickoff prompts (role assignment + first task per role)
       → [templates/prompts/](../templates/prompts/) (kickoffs + per-iteration
       task prompts for implement / verify / fix)
-- [ ] Implement the smashhh skill: interview → scaffold → loop
-- [ ] Define the verifier's PASS merge/PR mechanics (gh CLI? local merge?)
+- [x] Implement the smashhh skill: interview → scaffold → loop
+      → [skill/SKILL.md](../skill/SKILL.md) (install into `~/.agents/skills/smashhh`)
+- [x] Define the verifier's PASS merge/PR mechanics (gh CLI? local merge?)
+      → local merge by default, `gh pr` optional via interview
 - [ ] Dogfood: build smashhh's own first real project with smashhh

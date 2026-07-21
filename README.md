@@ -27,6 +27,27 @@ See [docs/design.md](docs/design.md) for the full design.
 
 Early design phase. See the open tasks in [docs/design.md](docs/design.md).
 
+## Usage
+
+smashhh is a [pi](https://github.com/earendil-works/pi) skill. It must run
+inside a [Herdr](https://github.com/anomaly/herdr) session (`HERDR_ENV=1`).
+
+Install by linking the skill folder into your pi skills directory:
+
+```powershell
+# Windows (PowerShell, admin or developer mode for symlinks)
+New-Item -ItemType SymbolicLink -Path "$HOME\.agents\skills\smashhh" -Target "<path-to-this-repo>\skill"
+```
+
+```bash
+# or just copy it
+cp -r <path-to-this-repo>/skill ~/.agents/skills/smashhh
+```
+
+Then, from any pi session inside Herdr: **"smashhh: new project"**. smashhh
+will interview you (project, location, harness + model per role, git mode,
+review gates), scaffold the repo, spawn the team, and drive the loop.
+
 ## License
 
 [MIT](LICENSE)
