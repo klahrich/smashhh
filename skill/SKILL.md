@@ -175,7 +175,17 @@ completion you should be reacting to.
 
 ## Driving rules
 
-- **Waits**: never wait with a bare `sleep` — you will miss completions and
+- **Waits — event-driven, not blocking**: after sending a task with
+  `pane run`, call the `herdr_watch` tool (from the herdr-watcher pi
+  extension) with the pane id, a short note, and **always `file` set to the
+  absolute path of that step's contract file** (`stories/story-NN.md` for
+  the planner, `handoff/coder_report.md` for the coder,
+  `handoff/verifier_report.md` for the verifier). The file write is the
+  reliable completion trigger — files are the source of truth, and Herdr's
+  agent-status detection can lag or get stuck. Then **end your turn** and
+  stay responsive to the user; react to the `[herdr-watcher]` message by
+  continuing the loop.
+- **Fallback without the extension**: never wait with a bare `sleep` — you will miss completions and
   react late. Use the **reactive wait-loop**: poll `herdr pane get` every
   ~10s inside one bash command, break as soon as the status is not `working`
   (`done` and `idle` both mean completed; `blocked` means the agent needs
