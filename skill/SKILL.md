@@ -165,9 +165,27 @@ completion you should be reacting to.
 
 ## Driving rules
 
-- **Waits**: after every `pane run` with a task, wait `working` (30s) then
-  `done`/`idle` (long timeout: 20–60 min for coder tasks). A `blocked` status
-  means the agent needs input — read the pane, surface it to the user.
+- **Waits**: never wait with a bare `sleep` — you will miss completions and
+  react late. Use the **reactive wait-loop**: poll `herdr pane get` every
+  ~10s inside one bash command, break as soon as the status is not `working`
+  (`done` and `idle` both mean completed; `blocked` means the agent needs
+  input — read the pane and surface it), and run a progress peek at each
+  configured interval from inside the same loop. Prefer this over
+  `herdr wait agent-status --status done`, which matches only one status and
+  can time out even though the agent finished (it completed as `idle`).
+  Example:
+
+  ```bash
+  pane=w6:p2; peek_every=300; last=0; deadline=$((SECONDS+3600))
+  while [ $SECONDS -lt $deadline ]; do
+    st=$(herdr pane get $pane | python -c "import json,sys;print(json.load(sys.stdin)['result']['pane']['agent_status'])")
+    [ "$st" != "working" ] && { echo "FINISHED: $st"; break; }
+    [ $((SECONDS-last)) -ge $peek_every ] && { python <skill-dir>/scripts/peek.py <workspace>; last=$SECONDS; }
+    sleep 10
+  done
+  ```
+
+  Size the deadline to the task (planner ~10 min, coder 30–60 min).
 - **Sentinel check**: after completion, `herdr pane read <pane> --source
   recent-unwrapped --lines 40` and look for the completion line defined in
   AGENTS.md. Absent sentinel + done status = agent stopped early; read more
