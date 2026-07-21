@@ -27,6 +27,10 @@ teammate pane.
 
 ## Step 1 — Interview
 
+If the `herdr_watch` tool is not available in this session, offer to install
+the herdr-watcher extension (`extensions/herdr-watcher/` in this repo) — it
+is what keeps you responsive during long agent runs.
+
 Ask the user, conversationally (batch the questions, don't drip-feed):
 
 1. **Project**: what is it about? Probe enough to write a solid
