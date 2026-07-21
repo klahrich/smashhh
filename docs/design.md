@@ -44,7 +44,7 @@ to smashhh itself through a pi session.
 
 ## Roles and personas
 
-The three personas live in [personas/](../personas/) (`planner.md`, `coder.md`,
+The three personas live in [skill/personas/](../skill/personas/) (`planner.md`, `coder.md`,
 `verifier.md`). They are distilled from existing public agent collections —
 [wshobson/agents](https://github.com/wshobson/agents) (`team-lead`,
 `team-implementer`, `team-reviewer`, `task-decomposition`) and
@@ -68,7 +68,7 @@ scaffolding (file contracts below) carries most of the process weight.
 ```
 <project>/
   AGENTS.md                  # role contracts, file protocol, sentinel rule
-                             # (generated from templates/AGENTS.md)
+                             # (generated from skill/templates/AGENTS.md)
   .smashhh/
     personas/                # planner.md, coder.md, verifier.md (copied from smashhh)
   docs/
@@ -176,12 +176,12 @@ waits, transcript reads) goes through the `herdr` CLI per the herdr skill.
 ## Open tasks
 
 - [x] Research existing planner/coder/verifier persona prompts & skills;
-      distill into three short persona blocks → [personas/](../personas/)
+      distill into three short persona blocks → [skill/personas/](../skill/personas/)
 - [x] Verify model-selection launch flags for pi, codex, claude
 - [x] Write the AGENTS.md template (roles, file protocol, sentinel rule)
-      → [templates/AGENTS.md](../templates/AGENTS.md)
+      → [skill/templates/AGENTS.md](../skill/templates/AGENTS.md)
 - [x] Write the kickoff prompts (role assignment + first task per role)
-      → [templates/prompts/](../templates/prompts/) (kickoffs + per-iteration
+      → [skill/templates/prompts/](../skill/templates/prompts/) (kickoffs + per-iteration
       task prompts for implement / verify / fix)
 - [x] Implement the smashhh skill: interview → scaffold → loop
       → [skill/SKILL.md](../skill/SKILL.md) (install into `~/.agents/skills/smashhh`)

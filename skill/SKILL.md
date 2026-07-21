@@ -10,9 +10,10 @@ building a project in a dedicated Herdr workspace. You (the pi session the user
 is talking to) are the **orchestrator**: you interview the user, scaffold the
 repo, spawn the agents, route tasks between them, and enforce the gates.
 
-The design rationale lives in `../docs/design.md`; the files you will copy and
-render live in `../templates/` and `../personas/`. Resolve those paths relative
-to this skill's directory. Read them before scaffolding.
+The design rationale lives in `docs/design.md` in the smashhh repository; the
+files you will copy and render live in `templates/` and `personas/` next to
+this SKILL.md. Resolve those paths relative to this skill's directory. Read
+them before scaffolding.
 
 ## Preflight
 
@@ -53,8 +54,8 @@ mkdir -p docs stories handoff .smashhh/personas
 
 Then:
 
-1. Copy `../personas/{planner,coder,verifier}.md` → `.smashhh/personas/`.
-2. Render `../templates/AGENTS.md` → `AGENTS.md`: replace `{{PROJECT_NAME}}`
+1. Copy `personas/{planner,coder,verifier}.md` → `.smashhh/personas/`.
+2. Render `templates/AGENTS.md` → `AGENTS.md`: replace `{{PROJECT_NAME}}`
    and `{{GIT_MODE}}`.
 3. Write `docs/PROJECT.md` from the interview.
 4. Commit: `git add -A && git commit -m "smashhh: project scaffold"`.
@@ -92,7 +93,7 @@ herdr wait agent-status <planner-pane> --status idle --timeout 120000
 ```
 
 Repeat for coder and verifier. Then send each its kickoff from
-`../templates/prompts/<role>-kickoff.md` (fill `{{PROJECT_NAME}}`,
+`templates/prompts/<role>-kickoff.md` (fill `{{PROJECT_NAME}}`,
 `{{GIT_MODE}}`):
 
 ```bash
