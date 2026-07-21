@@ -21,10 +21,13 @@ import { execFile } from "node:child_process";
 
 interface Watch {
 	note?: string;
+	sentinelAtBaseline: boolean;
 }
 
 const watches = new Map<string, Watch>();
 let timer: ReturnType<typeof setInterval> | null = null;
+
+const SENTINEL = "SMASHHH_TASK_COMPLETE:";
 
 function paneStatus(pane: string): Promise<string | null> {
 	return new Promise((resolve) => {
@@ -37,6 +40,23 @@ function paneStatus(pane: string): Promise<string | null> {
 				resolve(null);
 			}
 		});
+	});
+}
+
+// herdr pane read prints raw text (not JSON). Look for the completion
+// sentinel in the recent transcript: a fallback for when Herdr's
+// agent-status detection gets stuck at "working".
+function paneHasSentinel(pane: string): Promise<boolean> {
+	return new Promise((resolve) => {
+		execFile(
+			"herdr",
+			["pane", "read", pane, "--source", "recent-unwrapped", "--lines", "30"],
+			{ timeout: 15000 },
+			(err, stdout) => {
+				if (err) return resolve(false);
+				resolve(stdout.includes(SENTINEL));
+			},
+		);
 	});
 }
 
@@ -53,7 +73,8 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 			),
 		}),
 		async execute(_toolCallId, params) {
-			watches.set(params.pane, { note: params.note });
+			const sentinelAtBaseline = await paneHasSentinel(params.pane);
+			watches.set(params.pane, { note: params.note, sentinelAtBaseline });
 			return {
 				content: [
 					{
@@ -96,12 +117,24 @@ export default function herdrWatcher(pi: ExtensionAPI) {
 				} catch {
 					continue; // transient error; try again next tick
 				}
-				if (status === "working") continue;
+				let what: string;
+				if (status === "working") {
+					// Status can get stuck; fall back to the completion sentinel.
+					let hasSentinel = false;
+					try {
+						hasSentinel = await paneHasSentinel(pane);
+					} catch {
+						continue;
+					}
+					if (!hasSentinel || meta.sentinelAtBaseline) continue;
+					what = "still reports agent_status=working, but the completion sentinel appeared (stuck status detection)";
+				} else {
+					what =
+						status === null
+							? "is no longer reachable (pane closed or herdr error)"
+							: `agent_status=${status}`;
+				}
 				watches.delete(pane);
-				const what =
-					status === null
-						? "is no longer reachable (pane closed or herdr error)"
-						: `agent_status=${status}`;
 				pi.sendMessage(
 					{
 						customType: "herdr-watcher",
