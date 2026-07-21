@@ -44,13 +44,14 @@ to smashhh itself through a pi session.
 
 ## Roles and personas
 
-We will **reuse existing public prompts/skills** for the three personas rather
-than inventing them from scratch (research task — see Open Tasks). Candidates
-to survey: well-known "staff engineer / engineering PM / QA engineer" system
-prompts, existing agent-skill collections, and reflexion/good-practice
-checklists. Guideline: keep each persona **short and sharp** — a role paragraph
-plus a checklist, not an essay. The scaffolding (file contracts below) carries
-most of the process weight.
+The three personas live in [personas/](../personas/) (`planner.md`, `coder.md`,
+`verifier.md`). They are distilled from existing public agent collections —
+[wshobson/agents](https://github.com/wshobson/agents) (`team-lead`,
+`team-implementer`, `team-reviewer`, `task-decomposition`) and
+[contains-studio/agents](https://github.com/contains-studio/agents)
+(`sprint-prioritizer`, `test-writer-fixer`) — kept **short and sharp**: a role
+paragraph, a workflow, a file-format contract, and a handful of reflexes. The
+scaffolding (file contracts below) carries most of the process weight.
 
 - **Planner** — seasoned engineering PM + staff engineer. Breaks the project
   into high-level stories, then writes one *thorough* detailed story per
@@ -156,8 +157,8 @@ waits, transcript reads) goes through the `herdr` CLI per the herdr skill.
 
 ## Open tasks
 
-- [ ] Research existing planner/coder/verifier persona prompts & skills;
-      distill into three short persona blocks
+- [x] Research existing planner/coder/verifier persona prompts & skills;
+      distill into three short persona blocks → [personas/](../personas/)
 - [ ] Verify model-selection launch flags for pi, codex, claude
 - [ ] Write the AGENTS.md template (roles, file protocol, sentinel rule)
 - [ ] Write the kickoff prompts (role assignment + first task per role)
