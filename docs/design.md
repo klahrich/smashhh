@@ -68,6 +68,9 @@ scaffolding (file contracts below) carries most of the process weight.
 ```
 <project>/
   AGENTS.md                  # role contracts, file protocol, sentinel rule
+                             # (generated from templates/AGENTS.md)
+  .smashhh/
+    personas/                # planner.md, coder.md, verifier.md (copied from smashhh)
   docs/
     PROJECT.md               # the project brief from the interview
     ...                      # design docs the agents produce along the way
@@ -160,7 +163,8 @@ waits, transcript reads) goes through the `herdr` CLI per the herdr skill.
 - [x] Research existing planner/coder/verifier persona prompts & skills;
       distill into three short persona blocks → [personas/](../personas/)
 - [ ] Verify model-selection launch flags for pi, codex, claude
-- [ ] Write the AGENTS.md template (roles, file protocol, sentinel rule)
+- [x] Write the AGENTS.md template (roles, file protocol, sentinel rule)
+      → [templates/AGENTS.md](../templates/AGENTS.md)
 - [ ] Write the kickoff prompts (role assignment + first task per role)
 - [ ] Implement the smashhh skill: interview → scaffold → loop
 - [ ] Define the verifier's PASS merge/PR mechanics (gh CLI? local merge?)
